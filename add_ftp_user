@@ -1,0 +1,43 @@
+#!/bin/bash
+USER="$2"
+GROUP="$3"
+HOME_DIR="$1"
+ADDUSER=`which useradd`
+USERMOD=`which usermod`
+GROUPDEL=`which groupdel`
+PASSWD=`which passwd`
+CHMOD=`which chmod`
+CHOWN=`which chown`
+EXPECTED_ARGS=3
+E_BADARGS=65
+
+genpasswd() {
+    local l=$1
+        [ "$l" == "" ] && l=20
+        tr -dc A-Za-z0-9_ < /dev/urandom | head -c ${l} | xargs
+}
+
+PASS=`genpasswd`
+
+if [ $# -ne $EXPECTED_ARGS ]
+    then
+        echo "Usage: $0 home_dir dbuser group"
+    exit $E_BADARGS
+fi
+
+# add user
+$ADDUSER -d $HOME_DIR -s /sbin/nologin $USER
+#$CHMOD 775 $HOME_DIR
+$CHOWN $USER:$GROUP $HOME_DIR
+$USERMOD -g $GROUP $USER
+$GROUPDEL $USER
+
+echo $PASS | $PASSWD $USER --stdin
+
+echo "---------------------------------------"
+echo "User/Pass FTP: $USER/$PASS"
+echo "---------------------------------------"
+
+# add user to chroot list of vsftpd and restart vsftpd
+echo $USER >> /etc/vsftpd/chroot_list
+/etc/init.d/vsftpd restart
